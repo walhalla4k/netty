@@ -342,6 +342,8 @@
     return Math.random();
   }
 
+  var TICK_MS = 100; // 100ms 간격으로 돌아감
+
   function spin() {
     if (spinning) return;
     spinning = true;
@@ -350,7 +352,7 @@
 
     var n = state.count;
     var seg = (2 * Math.PI) / n;
-    var winner = uniformInt(n); // 균등 분포로 당첨 인덱스 선택
+    var winner = uniformInt(n); // 균등 분포로 당첨 인덱스 선택 (편향 없음)
 
     // 포인터는 12시 방향. 캔버스 0라디안은 3시 방향이므로 보정.
     var pointerAngle = -Math.PI / 2;
@@ -358,25 +360,25 @@
     var winnerCenter = winner * seg + seg / 2;
     var targetMod = pointerAngle - winnerCenter - jitter;
 
-    var turns = 5 + uniformInt(3); // 5~7바퀴
+    var turns = 2 + uniformInt(2); // 2~3바퀴 (마지막에 옵션이 똑딱똑딱 넘어가는 게 보이도록)
     var twoPi = 2 * Math.PI;
-    var base = currentAngle;
-    var delta = ((targetMod - base) % twoPi + twoPi) % twoPi + turns * twoPi;
-
     var startAngle = currentAngle;
-    var duration = 4200 + uniformFloat() * 1200; // 4.2~5.4초
-    var startTime = null;
+    var delta = ((targetMod - startAngle) % twoPi + twoPi) % twoPi + turns * twoPi;
+
+    // 총 회전 시간: 1000~2000ms 사이에서 100ms 간격으로 랜덤
+    var totalTicks = 10 + uniformInt(11);   // 10~20틱
+    var duration = totalTicks * TICK_MS;    // 1000~2000ms
+    var tick = 0;
 
     function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); } // 처음 빠르고 끝 느리게
-
-    function frame(ts) {
-      if (startTime === null) startTime = ts;
-      var t = Math.min(1, (ts - startTime) / duration);
+    var timer = setInterval(function () {
+      tick++;
+      var t = tick / totalTicks;
       currentAngle = startAngle + delta * easeOutQuart(t);
       drawWheel();
-      if (t < 1) {
-        requestAnimationFrame(frame);
-      } else {
+
+      if (tick >= totalTicks) {
+        clearInterval(timer);
         currentAngle = ((startAngle + delta) % twoPi + twoPi) % twoPi; // 정규화하여 유지
         drawWheel();
         spinning = false;
@@ -384,8 +386,7 @@
         var label = (state.labels[winner] || "").trim() || ("옵션 " + (winner + 1));
         resultEl.textContent = "🎉 결과: " + label;
       }
-    }
-    requestAnimationFrame(frame);
+    }, TICK_MS);
   }
 
   countSel.addEventListener("change", function () {
